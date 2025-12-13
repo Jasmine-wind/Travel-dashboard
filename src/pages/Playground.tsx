@@ -5,13 +5,15 @@ import { generateMockData } from '../lib/mockData'
 
 export default function Playground() {
   const [data, setData] = useState<InsightDataset | null>(null)
-  const [layout, setLayout] = useState<'grid' | 'alt'>('grid')
   const [loading, setLoading] = useState(true)
+  const layout: 'grid' | 'alt' = 'alt'
 
   const regenerate = (seed?: number) => {
     setLoading(true)
     setTimeout(() => {
-      setData(generateMockData(110, seed ?? Math.floor(Math.random() * 1000 + 1)))
+      const seedValue = seed ?? Math.floor(Math.random() * 1000 + 1)
+      setData(generateMockData(110, seedValue))
+      console.info('仪表盘数据刷新，来源：城市出行日常监测；模拟种子', seedValue)
       setLoading(false)
     }, 320)
   }
@@ -49,19 +51,15 @@ export default function Playground() {
     <div className="app-shell theme-neon">
       <div className="controls-row" style={{ marginBottom: 10 }}>
         <button className="btn primary" onClick={() => regenerate()}>
-          重新生成数据
+          刷新今日数据
         </button>
         <button className="btn" onClick={() => regenerate(42)}>
-          重置到固定种子
-        </button>
-        <button className="btn" onClick={() => setLayout((l) => (l === 'grid' ? 'alt' : 'grid'))}>
-          切换布局预设
+          同步至昨日快照
         </button>
       </div>
       <InsightDashboard
         data={data}
         layout={layout}
-        onLayoutChange={setLayout}
         onExport={handleExport}
       />
     </div>

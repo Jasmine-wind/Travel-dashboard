@@ -7,13 +7,12 @@ import { applyFilters, buildSparkline, filterByTimeRange, linkedSubgraph, stats 
 import type { InsightDataset, DataPoint } from '../lib/mockData'
 
 type MapMode = 'points' | 'heat' | 'trajectory'
-type NetworkMode = 'graph' | 'tree'
+type NetworkMode = 'graph' | 'list'
 type LayoutPreset = 'grid' | 'alt'
 
 interface Props {
   data: InsightDataset
   layout: LayoutPreset
-  onLayoutChange: (layout: LayoutPreset) => void
   onExport: (payload: any) => void
 }
 
@@ -62,24 +61,24 @@ function DetailPanel({ point, spark }: { point?: DataPoint; spark: { time: numbe
       </div>
       <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>层次路径：{point.hierarchyPath.join(' / ')}</div>
       <div className="sparkline">
-        <ReactECharts
-          style={{ height: 60 }}
-          option={{
-            grid: { left: 4, right: 4, top: 8, bottom: 0 },
-            xAxis: { type: 'time', show: false },
-            yAxis: { type: 'value', show: false },
-            series: [
-              {
-                type: 'line',
-                smooth: true,
-                symbol: 'none',
-                lineStyle: { width: 2, color: '#5af1ff' },
-                areaStyle: { color: 'rgba(90,241,255,0.15)' },
-                data: spark.map((d) => [d.time, d.count]),
-              },
-            ],
-          }}
-        />
+            <ReactECharts
+              style={{ height: 60 }}
+              option={{
+                grid: { left: 4, right: 4, top: 8, bottom: 0 },
+                xAxis: { type: 'time', show: false },
+                yAxis: { type: 'value', show: false },
+                series: [
+                  {
+                    type: 'line',
+                    smooth: true,
+                    symbol: 'none',
+                    lineStyle: { width: 2, color: '#ff8c42' },
+                    areaStyle: { color: 'rgba(255,140,66,0.18)' },
+                    data: spark.map((d) => [d.time, d.count]),
+                  },
+                ],
+              }}
+            />
       </div>
     </div>
   )
@@ -88,7 +87,6 @@ function DetailPanel({ point, spark }: { point?: DataPoint; spark: { time: numbe
 export default function InsightDashboard({
   data,
   layout,
-  onLayoutChange,
   onExport,
 }: Props) {
   const [mapMode, setMapMode] = useState<MapMode>('points')
@@ -105,6 +103,7 @@ export default function InsightDashboard({
     region: 'all',
     minConfidence: 0.55,
   })
+  const [showFilters, setShowFilters] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [scatterSelection, setScatterSelection] = useState<Set<string>>(new Set())
   const [networkSelection, setNetworkSelection] = useState<Set<string>>(new Set())
@@ -186,7 +185,14 @@ export default function InsightDashboard({
         {
           type: 'bar',
           barWidth: 10,
-          itemStyle: { color: '#5af1ff' },
+          itemStyle: { color: '#4b82f5' },
+          data: data.timeBuckets.map((b) => [b.time, b.count]),
+        },
+        {
+          type: 'line',
+          smooth: true,
+          symbol: 'none',
+          lineStyle: { color: '#f97316', width: 2, opacity: 0.6 },
           data: data.timeBuckets.map((b) => [b.time, b.count]),
         },
       ],
@@ -217,7 +223,7 @@ export default function InsightDashboard({
             name: p.name,
             category: p.category,
             id: p.id,
-            itemStyle: { color: selected.has(p.id) ? '#ff8bd1' : '#5af1ff' },
+            itemStyle: { color: selected.has(p.id) ? '#f97316' : '#4b82f5' },
           })),
         },
       ],
@@ -225,25 +231,8 @@ export default function InsightDashboard({
   }, [timeFiltered, scatterSelection])
 
   const networkOption = useMemo(() => {
-    if (networkMode === 'tree') {
-      return {
-        backgroundColor: 'transparent',
-        tooltip: { trigger: 'item' },
-        series: [
-          {
-            type: 'tree',
-            data: [data.hierarchy],
-            top: '8%',
-            left: '2%',
-            bottom: '2%',
-            right: '15%',
-            symbolSize: 10,
-            label: { color: '#cfe0ff', position: 'left', verticalAlign: 'middle', align: 'right' },
-            lineStyle: { color: 'rgba(255,255,255,0.25)' },
-            leaves: { label: { position: 'right', color: '#9fb3c8' } },
-          },
-        ],
-      }
+    if (networkMode === 'list') {
+      return null
     }
     const nodeLookup = new Map<string, DataPoint>()
     activePoints.forEach((p) => nodeLookup.set(p.id, p))
@@ -260,12 +249,14 @@ export default function InsightDashboard({
           force: { repulsion: 60, edgeLength: 80 },
           data: Array.from(graph.nodeIds).map((id) => {
             const p = nodeLookup.get(id)
+            const isAnomaly = p?.category === '出行异常'
+            const focused = selectedSet.has(id)
             return {
               id,
               name: p?.name ?? id,
               value: p?.confidence ?? 1,
               symbolSize: 10 + (p?.confidence ?? 0.6) * 8,
-              itemStyle: { color: selectedSet.has(id) ? '#ff8bd1' : '#8b5cf6' },
+              itemStyle: { color: focused || isAnomaly ? '#f97316' : '#4b82f5' },
             }
           }),
           edges: graph.edges.map((e) => ({ source: e.source, target: e.target, lineStyle: { width: e.weight * 1.2 } })),
@@ -303,8 +294,26 @@ export default function InsightDashboard({
   const mainLayoutClass = classNames('layout-grid', { alt: layout === 'alt' })
   const panelLayoutClass = classNames('layout-panel', { alt: layout === 'alt' })
 
+  const hierarchyList = useMemo(() => {
+    const list: { path: string; count: number }[] = []
+    const regions = data.meta.regions
+    regions.forEach((r) => {
+      const regionPoints = activePoints.filter((p) => p.region === r)
+      if (regionPoints.length) list.push({ path: r, count: regionPoints.length })
+      data.meta.communities.forEach((c) => {
+        const commPoints = regionPoints.filter((p) => p.community === c)
+        if (commPoints.length) list.push({ path: `${r} / ${c}`, count: commPoints.length })
+        data.meta.categories.forEach((cat) => {
+          const leaf = commPoints.filter((p) => p.category === cat)
+          if (leaf.length) list.push({ path: `${r} / ${c} / ${cat}`, count: leaf.length })
+        })
+      })
+    })
+    return list
+  }, [activePoints, data.meta.categories, data.meta.communities, data.meta.regions])
+
   return (
-    <div className={classNames('app-shell', 'theme-neon')}>
+    <div className={classNames('app-shell', 'theme-warm')}>
       <div className={mainLayoutClass}>
         <motion.div
           className="glass view-card neon-border"
@@ -314,75 +323,15 @@ export default function InsightDashboard({
           style={{ gridArea: 'header' }}
         >
           <div className="view-title">
-            <span>城市出行安全洞察台</span>
+            <span>城市出行状况看板</span>
             <div className="controls-row">
-              <button className="btn" onClick={() => onLayoutChange(layout === 'grid' ? 'alt' : 'grid')}>
-                布局：{layout === 'grid' ? '科研仪表布局' : '平铺布局'}
+              <button className="btn" onClick={() => setShowFilters((v) => !v)}>
+                {showFilters ? '收起筛选' : '展开筛选'}
               </button>
               <button className="btn primary" onClick={handleExport}>
                 导出当前筛选
               </button>
             </div>
-          </div>
-          <div className="controls-row" style={{ alignItems: 'center', marginTop: 6 }}>
-            <input
-              placeholder="全局搜索 ID/名称/区域"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                flex: 1,
-                padding: '10px 12px',
-                borderRadius: 12,
-                border: '1px solid var(--glass-border)',
-                background: 'rgba(255,255,255,0.05)',
-                color: 'inherit',
-              }}
-            />
-            <select
-              value={filters.category}
-              onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))}
-              className="btn"
-            >
-              <option value="all">全部类别</option>
-              {data.meta.categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <select
-              value={filters.community}
-              onChange={(e) => setFilters((f) => ({ ...f, community: e.target.value }))}
-              className="btn"
-            >
-              <option value="all">全部社区</option>
-              {data.meta.communities.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <select
-              value={filters.region}
-              onChange={(e) => setFilters((f) => ({ ...f, region: e.target.value }))}
-              className="btn"
-            >
-              <option value="all">全部区域</option>
-              {data.meta.regions.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <div className="pill">置信度 ≥ {filters.minConfidence.toFixed(2)}</div>
-            <input
-              type="range"
-              min={0.5}
-              max={1}
-              step={0.01}
-              value={filters.minConfidence}
-              onChange={(e) => setFilters((f) => ({ ...f, minConfidence: Number(e.target.value) }))}
-            />
           </div>
           <div className="status-bar">
             <div className="status-chip">
@@ -396,11 +345,11 @@ export default function InsightDashboard({
               <strong>{formatTimeRange(timeRange[0], timeRange[1])}</strong>
             </div>
             <div className="status-chip">
-              <span>均值置信度</span>
+              <span>均值可信度</span>
               <strong>{stat.avgConfidence.toFixed(2)}</strong>
             </div>
             <div className="status-chip">
-              <span>区域/社区覆盖</span>
+              <span>区域/分组覆盖</span>
               <strong>
                 {stat.regionCount} / {stat.communityCount}
               </strong>
@@ -410,17 +359,79 @@ export default function InsightDashboard({
               <strong>{renderCost}</strong>
             </div>
           </div>
+          {showFilters && (
+            <div className="controls-row" style={{ alignItems: 'center', marginTop: 6 }}>
+              <input
+                placeholder="搜索 行程编号/名称/区域"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  border: '1px solid var(--glass-border)',
+                  background: '#fff',
+                  color: 'inherit',
+                }}
+              />
+              <select
+                value={filters.category}
+                onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))}
+                className="btn"
+              >
+                <option value="all">全部类型</option>
+                {data.meta.categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.community}
+                onChange={(e) => setFilters((f) => ({ ...f, community: e.target.value }))}
+                className="btn"
+              >
+                <option value="all">全部分组</option>
+                {data.meta.communities.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.region}
+                onChange={(e) => setFilters((f) => ({ ...f, region: e.target.value }))}
+                className="btn"
+              >
+                <option value="all">全部区域</option>
+                {data.meta.regions.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <div className="pill">可信度 ≥ {filters.minConfidence.toFixed(2)}</div>
+              <input
+                type="range"
+                min={0.5}
+                max={1}
+                step={0.01}
+                value={filters.minConfidence}
+                onChange={(e) => setFilters((f) => ({ ...f, minConfidence: Number(e.target.value) }))}
+              />
+            </div>
+          )}
         </motion.div>
 
         <motion.div
           className="glass view-card neon-border map-wrapper"
-          style={{ gridArea: 'map', minHeight: 820 }}
+          style={{ gridArea: 'map', minHeight: 420 }}
           variants={cardVariants}
           initial="initial"
           animate="animate"
         >
           <div className="view-title">
-            <span>地理视图 · {mapMode}</span>
+            <span>城市地图 · {mapMode === 'points' ? '地点' : mapMode === 'heat' ? '热度' : '轨迹'}</span>
             <div className="controls-row">
               {(['points', 'heat', 'trajectory'] as MapMode[]).map((m) => (
                 <button
@@ -433,11 +444,11 @@ export default function InsightDashboard({
               ))}
             </div>
           </div>
-          <div style={{ height: '100%', minHeight: 760 }}>
-            <MapContainer center={mapCenter} zoom={5} scrollWheelZoom className="glass" style={{ height: '100%' }}>
+          <div style={{ height: '100%', minHeight: 420 }}>
+            <MapContainer center={mapCenter} zoom={5} scrollWheelZoom className="glass" style={{ height: '420px', borderRadius: 12 }}>
               <TileLayer
-                attribution="&copy; OpenStreetMap"
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution="&copy; Stadia Maps, &copy; OpenMapTiles &copy; OpenStreetMap contributors"
+                url="https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png"
               />
               {activePoints.map((p) => (
                 <CircleMarker
@@ -445,11 +456,11 @@ export default function InsightDashboard({
                   center={[p.coords.lat, p.coords.lng]}
                   radius={mapMode === 'heat' ? 18 : 8 + p.confidence * 4}
                   pathOptions={{
-                    color: selectedId === p.id ? '#ff8bd1' : '#5af1ff',
-                    fillColor: mapMode === 'heat' ? 'rgba(255,128,0,0.45)' : '#5af1ff',
-                    opacity: 0.9,
-                    fillOpacity: mapMode === 'heat' ? 0.35 : 0.6,
-                  }}
+                  color: selectedId === p.id || p.category === '出行异常' ? '#f97316' : '#4b82f5',
+                  fillColor: mapMode === 'heat' ? 'rgba(249,115,22,0.25)' : '#4b82f5',
+                  opacity: 0.9,
+                  fillOpacity: mapMode === 'heat' ? 0.35 : 0.6,
+                }}
                   eventHandlers={{
                     click: () => setSelectedId(p.id),
                   }}
@@ -471,7 +482,7 @@ export default function InsightDashboard({
           <motion.div className="glass view-card neon-border" variants={cardVariants} initial="initial" animate="animate">
             <div className="view-title">
               <span>时间轴</span>
-              <span className="pill">Brush 过滤</span>
+              <span className="pill">拖动过滤 · 建议关注近期峰值</span>
             </div>
             <ReactECharts
               style={{ height: 220 }}
@@ -484,8 +495,8 @@ export default function InsightDashboard({
 
           <motion.div className="glass view-card neon-border" variants={cardVariants} initial="initial" animate="animate">
             <div className="view-title">
-              <span>高维投影</span>
-              <span className="pill">框选 → 地图/网络联动</span>
+              <span>出行特征散点</span>
+              <span className="pill">框选 → 地图/关联联动</span>
             </div>
             <ReactECharts
               style={{ height: 240 }}
@@ -496,7 +507,7 @@ export default function InsightDashboard({
 
           <motion.div className="glass view-card neon-border" variants={cardVariants} initial="initial" animate="animate">
             <div className="view-title">
-              <span>网络 / 层次</span>
+              <span>关联关系</span>
               <div className="controls-row">
                 <button
                   className={classNames('btn', { primary: networkMode === 'graph' })}
@@ -505,85 +516,31 @@ export default function InsightDashboard({
                   网络
                 </button>
                 <button
-                  className={classNames('btn', { primary: networkMode === 'tree' })}
-                  onClick={() => setNetworkMode('tree')}
+                  className={classNames('btn', { primary: networkMode === 'list' })}
+                  onClick={() => setNetworkMode('list')}
                 >
-                  层次
+                  层次列表
                 </button>
               </div>
             </div>
-            <ReactECharts
-              style={{ height: 260 }}
-              option={networkOption}
-              onEvents={{ click: handleNetworkClick }}
-            />
+            {networkMode === 'graph' && networkOption && (
+              <ReactECharts style={{ height: 280 }} option={networkOption} onEvents={{ click: handleNetworkClick }} />
+            )}
+            {networkMode === 'list' && (
+              <div style={{ maxHeight: 280, overflow: 'auto', display: 'grid', gap: 8, padding: '6px 4px' }}>
+                {hierarchyList.map((h) => (
+                  <div key={h.path} className="badge" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{h.path}</span>
+                    <strong>{h.count}</strong>
+                  </div>
+                ))}
+                {!hierarchyList.length && <div style={{ opacity: 0.6 }}>当前筛选无数据</div>}
+              </div>
+            )}
           </motion.div>
 
-          <DetailPanel point={detail} spark={sparkData} />
-
-          <motion.div className="glass view-card neon-border" variants={cardVariants} initial="initial" animate="animate">
-            <div className="view-title">
-              <span>控制面板</span>
-              <span className="pill">折叠/展开</span>
-            </div>
-            <div className="accordion">
-              <div className="accordion-item">
-                <div className="accordion-header" onClick={(e) => {
-                  const body = (e.currentTarget.nextSibling as HTMLElement)
-                  body.style.display = body.style.display === 'none' ? 'block' : 'none'
-                }}>
-                  <span>地图模式</span>
-                  <span>切换</span>
-                </div>
-                <div className="accordion-body">
-                  <div className="controls-row">
-                    {(['points', 'heat', 'trajectory'] as MapMode[]).map((m) => (
-                      <button
-                        key={m}
-                        className={classNames('btn', { primary: mapMode === m })}
-                        onClick={() => setMapMode(m)}
-                      >
-                        {m}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="accordion-item">
-                <div className="accordion-header" onClick={(e) => {
-                  const body = (e.currentTarget.nextSibling as HTMLElement)
-                  body.style.display = body.style.display === 'none' ? 'block' : 'none'
-                }}>
-                  <span>布局预设</span>
-                  <span>切换</span>
-                </div>
-                <div className="accordion-body">
-                  <div className="controls-row">
-                    <button className={classNames('btn', { primary: layout === 'grid' })} onClick={() => onLayoutChange('grid')}>
-                      预设 A
-                    </button>
-                    <button className={classNames('btn', { primary: layout === 'alt' })} onClick={() => onLayoutChange('alt')}>
-                      预设 B
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="accordion-item">
-                <div className="accordion-header" onClick={(e) => {
-                  const body = (e.currentTarget.nextSibling as HTMLElement)
-                  body.style.display = body.style.display === 'none' ? 'block' : 'none'
-                }}>
-                  <span>导出</span>
-                  <span>操作</span>
-                </div>
-                <div className="accordion-body">
-                  <button className="btn primary" onClick={handleExport}>
-                    导出 JSON
-                  </button>
-                  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>可将当前筛选数据保存用于复现分析。</div>
-                </div>
-              </div>
-            </div>
+          <motion.div className="glass view-card neon-border" variants={cardVariants} initial="initial" animate="animate" style={{ minHeight: 300 }}>
+            <DetailPanel point={detail} spark={sparkData} />
           </motion.div>
         </div>
       </div>

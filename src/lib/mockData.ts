@@ -37,9 +37,24 @@ export interface InsightDataset {
   }
 }
 
-const categories = ['异常事件', '巡检轨迹', '流量节点', '告警源', '高价值目标']
-const communities = ['Cyan', 'Magenta', 'Lime', 'Amber']
+const categories = ['出行异常', '常规出行', '高频地点', '拥堵提醒', '重点关注']
+const communities = ['早高峰', '晚高峰', '周末', '节假日']
 const regions = ['华北', '华东', '华南', '西南', '东北']
+
+function coordsForRegion(region: string, random: () => number) {
+  // 粗略分区，仅保证落在对应大区范围
+  const ranges: Record<string, { lat: [number, number]; lng: [number, number] }> = {
+    华北: { lat: [38, 42], lng: [110, 118] },
+    华东: { lat: [29, 34], lng: [116, 123] },
+    华南: { lat: [21, 26], lng: [108, 116] },
+    西南: { lat: [24, 31], lng: [100, 107] },
+    东北: { lat: [41, 47], lng: [120, 129] },
+  }
+  const range = ranges[region] ?? { lat: [22, 40], lng: [100, 118] }
+  const lat = range.lat[0] + random() * (range.lat[1] - range.lat[0])
+  const lng = range.lng[0] + random() * (range.lng[1] - range.lng[0])
+  return { lat, lng }
+}
 
 function seededRandom(seed: number) {
   let s = seed % 2147483647
@@ -70,8 +85,8 @@ export function generateMockData(count = 90, seed = 42): InsightDataset {
     const community = communities[Math.floor(rand() * communities.length)]
     const region = regions[Math.floor(rand() * regions.length)]
     const timestamp = baseTime + Math.floor(rand() * 1000 * 60 * 60 * 24 * 14)
-    const lat = 25 + rand() * 20
-    const lng = 103 + rand() * 20
+    // 经纬度范围收敛在中国境内
+    const { lat, lng } = coordsForRegion(region, rand)
     const features = Array.from({ length: 6 }, () => rand() * 2 - 1)
     const projection = pseudoProject(features, rand)
     const trajectory = Array.from({ length: 6 }, (_, idx) => ({
