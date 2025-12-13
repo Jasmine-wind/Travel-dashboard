@@ -1,74 +1,88 @@
-# React + TypeScript + Vite
+# Travel Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> 一套面向“城市出行安全洞察”的高保真交互式看板，内置多源数据联动、地图 + 网络分析和导出共享能力，帮助团队快速验证可视化方案。
 
-Currently, two official plugins are available:
+[![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)](https://react.dev)
+[![Vite](https://img.shields.io/badge/Vite-7.2-646CFF?logo=vite&logoColor=white)](https://vite.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 功能亮点
 
-## React Compiler
+- **一屏洞察**：时间序列、散点分布、网络图和地图轨迹共存，通过 `MapMode`、`NetworkMode` 等切换不同视角。
+- **高级筛选**：按区域、客群、类型、置信度与关键词实时过滤，配合时间轴拖拽实现多维交叉查询。
+- **联动详情**：支持散点框选、图谱点选与右侧详情面板联动，并以迷你折线 Sparkline 呈现趋势。
+- **导出与快照**：一键导出当前筛选条件与数据载荷，配合 Playground 中的“刷新/同步”按钮模拟运维场景。
+- **可替换数据层**：提供 `generateMockData` 与接口约定，方便对接真实行程数据或告警信号。
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 快速开始
 
-## Expanding the ESLint configuration
+```bash
+# 1. 安装依赖（推荐 Node.js >= 18）
+npm install
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+# 2. 启动开发服务器
+npm run dev
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# 3. 生产构建与预览
+npm run build
+npm run preview
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+> 支持 `pnpm` / `yarn`，替换命令即可。
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 技术栈
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Layer | Stack |
+| --- | --- |
+| 前端框架 | React 19 + TypeScript + Vite |
+| 可视化 | ECharts 6、react-leaflet、Leaflet、framer-motion |
+| 状态/逻辑 | React Hooks、自定义 `useRenderCost`、条件筛选与图查询工具 `linking.ts` |
+| 设计语言 | 玻璃拟态 + 霓虹主题，搭配 `classnames` 动态样式 |
+
+## 目录结构
+
 ```
->>>>>>> dc2a657 (first edit)
+.
+|-- public/            # 静态资源
+|-- src/
+|   |-- components/
+|   |   `-- InsightDashboard.tsx   # 核心仪表盘组件
+|   |-- pages/
+|   |   `-- Playground.tsx         # 演示页 + 数据刷新/导出入口
+|   |-- lib/
+|   |   |-- mockData.ts            # 数据接口定义与模拟生成器
+|   |   `-- linking.ts             # 筛选、联动和统计工具函数
+|   |-- App.tsx / main.tsx         # App Shell
+|-- vite.config.ts
+`-- package.json
+```
+
+## 核心模块
+
+- `InsightDashboard`：封装地图（点/热力/轨迹）、网络关系和图表面板，并管理筛选状态、拖拽缩放与导出。
+- `Playground`：示例入口，使用 `generateMockData` 参数化生成 14 天滑窗数据并展示加载骨架屏。
+- `linking.ts`：实现查询、时间段过滤、子图提取、统计指标与 Sparkline 数据转换。
+- `mockData.ts`：给出 `InsightDataset`、`DataPoint` 等接口以及可替换的 mock 生成逻辑（含区域锚点、轨迹与层级树）。
+
+## 常用脚本
+
+| 命令 | 说明 |
+| --- | --- |
+| `npm run dev` | 启动本地开发服务器（含 HMR） |
+| `npm run build` | TypeScript 预构建 + Vite 产物输出到 `dist/` |
+| `npm run preview` | 使用本地静态服务器验证生产构建 |
+| `npm run lint` | 运行 ESLint，含 React/TypeScript 推荐规则 |
+
+## 数据与可扩展性
+
+- Mock 数据聚焦国内五大区域、四类客群和五种出行类型，可通过 `generateMockData(count, seed)` 自定义样本规模与随机种子。
+- 地图支持替换为真实地理围栏，只需在 `coords`/`trajectory` 中写入真实坐标，或改写 `coordsForRegion`。
+- 网络关系、层级树、时间桶等均来自 `InsightDataset`，在接入真实 API 时复用接口即可。
+
+## 路线图
+
+1. 接入真实轨迹/告警数据，并提供 WebSocket 增量更新。
+2. 补充热力层 + 点密度渲染，强化地图态势表现。
+3. 输出分享链接与权限控制，便于运营/安全团队协作。
+
+---
