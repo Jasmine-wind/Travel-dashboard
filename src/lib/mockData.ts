@@ -42,17 +42,47 @@ const communities = ['早高峰', '晚高峰', '周末', '节假日']
 const regions = ['华北', '华东', '华南', '西南', '东北']
 
 function coordsForRegion(region: string, random: () => number) {
-  // 粗略分区，仅保证落在对应大区范围
-  const ranges: Record<string, { lat: [number, number]; lng: [number, number] }> = {
-    华北: { lat: [38, 42], lng: [110, 118] },
-    华东: { lat: [29, 34], lng: [116, 123] },
-    华南: { lat: [21, 26], lng: [108, 116] },
-    西南: { lat: [24, 31], lng: [100, 107] },
-    东北: { lat: [41, 47], lng: [120, 129] },
+  // 采用“城市锚点 + 抖动”的轻量方案，尽量避免落在海里
+  //（真实项目可替换为行政区面 + point-in-polygon 采样）
+  const anchors: Record<string, { lat: number; lng: number }[]> = {
+    华北: [
+      { lat: 39.9042, lng: 116.4074 }, // 北京
+      { lat: 38.0428, lng: 114.5149 }, // 石家庄
+      { lat: 37.8706, lng: 112.5489 }, // 太原
+      { lat: 36.6512, lng: 117.1201 }, // 济南(偏北)
+    ],
+    华东: [
+      { lat: 31.2304, lng: 121.4737 }, // 上海
+      { lat: 30.2741, lng: 120.1551 }, // 杭州
+      { lat: 32.0603, lng: 118.7969 }, // 南京
+      { lat: 31.2989, lng: 120.5853 }, // 苏州
+    ],
+    华南: [
+      { lat: 23.1291, lng: 113.2644 }, // 广州
+      { lat: 22.5431, lng: 114.0579 }, // 深圳
+      { lat: 22.8199, lng: 108.3200 }, // 南宁
+      { lat: 28.2282, lng: 112.9388 }, // 长沙(内陆，避免海上)
+    ],
+    西南: [
+      { lat: 30.5728, lng: 104.0668 }, // 成都
+      { lat: 29.5630, lng: 106.5516 }, // 重庆
+      { lat: 25.0389, lng: 102.7183 }, // 昆明
+      { lat: 26.6470, lng: 106.6302 }, // 贵阳
+    ],
+    东北: [
+      { lat: 45.8038, lng: 126.5349 }, // 哈尔滨
+      { lat: 41.8057, lng: 123.4315 }, // 沈阳
+      { lat: 43.8171, lng: 125.3235 }, // 长春
+      { lat: 46.8138, lng: 130.3650 }, // 佳木斯
+    ],
   }
-  const range = ranges[region] ?? { lat: [22, 40], lng: [100, 118] }
-  const lat = range.lat[0] + random() * (range.lat[1] - range.lat[0])
-  const lng = range.lng[0] + random() * (range.lng[1] - range.lng[0])
+
+  const list = anchors[region] ?? anchors.华北
+  const anchor = list[Math.floor(random() * list.length)]
+  const jitterLat = (random() - 0.5) * 3.0
+  const jitterLng = (random() - 0.5) * 3.2
+  const lat = anchor.lat + jitterLat
+  const lng = anchor.lng + jitterLng
   return { lat, lng }
 }
 
