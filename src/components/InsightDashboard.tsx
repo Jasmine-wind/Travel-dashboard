@@ -425,7 +425,7 @@ export default function InsightDashboard({
 
         <motion.div
           className="glass view-card neon-border map-wrapper"
-          style={{ gridArea: 'map', minHeight: 420 }}
+          style={{ gridArea: 'map', minHeight: 560 }}
           variants={cardVariants}
           initial="initial"
           animate="animate"
@@ -444,8 +444,8 @@ export default function InsightDashboard({
               ))}
             </div>
           </div>
-          <div style={{ height: '100%', minHeight: 420 }}>
-            <MapContainer center={mapCenter} zoom={5} scrollWheelZoom className="glass" style={{ height: '420px', borderRadius: 12 }}>
+          <div style={{ height: '100%', minHeight: 560 }}>
+            <MapContainer center={mapCenter} zoom={5} scrollWheelZoom className="glass" style={{ height: '560px', borderRadius: 12 }}>
               <TileLayer
                 attribution="&copy; Stadia Maps, &copy; OpenMapTiles &copy; OpenStreetMap contributors"
                 url="https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png"
