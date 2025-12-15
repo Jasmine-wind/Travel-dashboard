@@ -1,18 +1,27 @@
 # Travel Dashboard
 
-> 一套面向“城市出行安全洞察”的高保真交互式看板，内置多源数据联动、地图 + 网络分析和导出共享能力，帮助团队快速验证可视化方案。
+> 面向“城市出行安全洞察”的高保真交互式看板，通过多源数据联动、地图 + 网络分析和导出共享能力，帮助安全/运营团队验证策略与汇报洞察。
 
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-7.2-646CFF?logo=vite&logoColor=white)](https://vite.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
+## 视觉预览
+
+<p align="center">
+  <img src="public/screenshot-2025-12-15_15-10-53.png" alt="Travel Dashboard 预览" width="760" />
+</p>
+<p align="center">
+  <sub>时间轴、地图、网络关系与统计指标同屏联动，可快速定位异常出行模式。</sub>
+</p>
+
 ## 功能亮点
 
-- **一屏洞察**：时间序列、散点分布、网络图和地图轨迹共存，通过 `MapMode`、`NetworkMode` 等切换不同视角。
-- **高级筛选**：按区域、客群、类型、置信度与关键词实时过滤，配合时间轴拖拽实现多维交叉查询。
-- **联动详情**：支持散点框选、图谱点选与右侧详情面板联动，并以迷你折线 Sparkline 呈现趋势。
-- **导出与快照**：一键导出当前筛选条件与数据载荷，配合 Playground 中的“刷新/同步”按钮模拟运维场景。
-- **可替换数据层**：提供 `generateMockData` 与接口约定，方便对接真实行程数据或告警信号。
+- **多画布联动**：时间序列、散点投影、网络关系和地图轨迹同屏展示，可在 `MapMode`、`NetworkMode` 间无缝切换。
+- **多维筛选**：区域/人群/类型/置信度/关键词/时间轴联动过滤，支持散点框选聚焦局部异常。
+- **智能详情面板**：点击任意节点即可查看层次路径、指标 pill 与迷你 Sparkline，一体化完成场景复盘。
+- **导出/快照流程**：Playground 提供“刷新今日”“同步快照”复现运维场景，并能一键导出 JSON 复用分析结果。
+- **灵活数据层**：通过 `generateMockData` 以及标准化 `InsightDataset` 接口，可快速对接真实轨迹或报警信号。
 
 ## 快速开始
 
